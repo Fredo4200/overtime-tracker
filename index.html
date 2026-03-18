@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Demetri — Overtime Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f0f0f; --surface: #191919; --surface2: #222222;
+    --border: #2e2e2e; --border-light: #3a3a3a;
+    --text: #f0f0f0; --text-muted: #888; --text-dim: #555;
+    --accent: #d4ff5e; --accent-bg: rgba(212,255,94,0.08);
+    --danger: #ff5e5e; --success: #5effa0; --info: #5eb8ff;
+    --mono: 'DM Mono', monospace; --sans: 'DM Sans', sans-serif;
+    --radius: 10px; --radius-sm: 6px;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; min-height: 100vh; line-height: 1.5; }
+  .app { max-width: 760px; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; }
+
+  .logo { font-family: var(--mono); font-size: 11px; color: var(--accent); letter-spacing: 0.12em; text-transform: uppercase; display: block; margin-bottom: 6px; }
+  h1 { font-size: 26px; font-weight: 300; letter-spacing: -0.02em; margin-bottom: 2rem; }
+  h1 strong { font-weight: 500; }
+
+  #auth-bar { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); margin-bottom: 1.5rem; font-size: 13px; }
+  .auth-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-dim); flex-shrink: 0; transition: background 0.3s; }
+  .auth-dot.connected { background: var(--success); }
+  .auth-dot.connecting { background: var(--accent); animation: pulse 1s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.4} }
+  #auth-status { color: var(--text-muted); flex: 1; }
+  #auth-status strong { color: var(--text); }
+  .btn-sm { font-family: var(--sans); font-size: 12px; padding: 5px 12px; border-radius: var(--radius-sm); border: 0.5px solid var(--border-light); background: transparent; color: var(--text-muted); cursor: pointer; transition: all 0.15s; }
+  .btn-sm:hover { background: var(--surface2); color: var(--text); }
+  .btn-sm.primary { border-color: var(--accent); color: var(--accent); }
+  .btn-sm.primary:hover { background: var(--accent-bg); }
+  .btn-sm.danger { border-color: var(--danger); color: var(--danger); }
+
+  #sheet-config { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 1.5rem; }
+  #sheet-config > label { font-size: 11px; color: var(--text-muted); letter-spacing: 0.06em; text-transform: uppercase; display: block; margin-bottom: 6px; }
+  #sheet-config input { width: 100%; background: var(--bg); border: 0.5px solid var(--border-light); border-radius: var(--radius-sm); padding: 8px 12px; color: var(--text); font-family: var(--mono); font-size: 12px; }
+  #sheet-config input:focus { outline: none; border-color: var(--accent); }
+  .hint { font-size: 11px; color: var(--text-dim); margin-top: 6px; }
+  .hint a { color: var(--info); text-decoration: none; }
+
+  .form-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 1.5rem; margin-bottom: 1rem; }
+  .card-label { font-size: 11px; color: var(--accent); letter-spacing: 0.1em; text-transform: uppercase; font-family: var(--mono); margin-bottom: 1.2rem; display: block; }
+
+  .grid { display: grid; gap: 12px; margin-bottom: 12px; }
+  .g2 { grid-template-columns: 1fr 1fr; }
+  .g3 { grid-template-columns: 1fr 1fr 1fr; }
+
+  .field > label { display: block; font-size: 11px; color: var(--text-muted); letter-spacing: 0.04em; margin-bottom: 5px; }
+  .field label .req { color: var(--accent); }
+  .field input, .field textarea {
+    width: 100%; background: var(--bg); border: 0.5px solid var(--border-light);
+    border-radius: var(--radius-sm); padding: 8px 10px; color: var(--text);
+    font-family: var(--sans); font-size: 13px; transition: border-color 0.15s;
+  }
+  .field input:focus, .field textarea:focus { outline: none; border-color: var(--accent); }
+  .field textarea { min-height: 64px; resize: vertical; }
+
+  .sel {
+    background: var(--bg); border: 0.5px solid var(--border-light);
+    border-radius: var(--radius-sm); padding: 8px 8px; color: var(--text);
+    font-family: var(--sans); font-size: 13px; cursor: pointer;
+    appearance: none; -webkit-appearance: none; transition: border-color 0.15s;
+  }
+  .sel:focus { outline: none; border-color: var(--accent); }
+  .sel-full { width: 100%; }
+
+  .date-row { display: grid; grid-template-columns: 52px 1fr 70px; gap: 6px; }
+  .date-row .sel { text-align: center; }
+
+  .time-row { display: grid; grid-template-columns: 1fr 10px 1fr 56px; align-items: center; gap: 4px; }
+  .time-row .sep { text-align: center; color: var(--text-dim); font-family: var(--mono); }
+  .time-row .sel { text-align: center; font-family: var(--mono); }
+
+  .dur { display: none; align-items: center; gap: 6px; background: var(--accent-bg); border: 0.5px solid var(--accent); border-radius: 20px; padding: 4px 14px; font-family: var(--mono); font-size: 12px; color: var(--accent); margin-bottom: 12px; width: fit-content; }
+
+  .btn-row { display: flex; gap: 10px; align-items: center; margin-top: 4px; flex-wrap: wrap; }
+  .btn { font-family: var(--sans); font-size: 13px; font-weight: 500; padding: 9px 20px; border-radius: var(--radius-sm); border: 0.5px solid; cursor: pointer; transition: all 0.15s; background: transparent; }
+  .btn:active { transform: scale(0.97); }
+  .btn-add { border-color: var(--accent); color: var(--accent); }
+  .btn-add:hover { background: var(--accent-bg); }
+  .btn-submit { border-color: var(--success); color: var(--success); }
+  .btn-submit:hover { background: rgba(94,255,160,0.08); }
+  .btn-submit:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-clear { border-color: var(--border-light); color: var(--text-muted); }
+  .btn-clear:hover { background: var(--surface2); color: var(--text); }
+  .btn-copy { border-color: var(--info); color: var(--info); font-size: 12px; padding: 6px 14px; }
+  .btn-copy:hover { background: rgba(94,184,255,0.08); }
+  .btn-copy.copied { border-color: var(--success); color: var(--success); }
+  .err-msg { font-size: 12px; color: var(--danger); }
+
+  .queue-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 1.25rem 1.5rem; margin-bottom: 1rem; }
+  .queue-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .queue-header .card-label { margin-bottom: 0; }
+  .badge { font-family: var(--mono); font-size: 10px; background: var(--accent-bg); color: var(--accent); border: 0.5px solid var(--accent); border-radius: 20px; padding: 2px 8px; }
+  .entry-item { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 0.5px solid var(--border); }
+  .entry-item:first-of-type { border-top: none; }
+  .entry-meta { flex: 1; min-width: 0; }
+  .entry-line1 { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .entry-line2 { font-family: var(--mono); font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  .entry-sheet { font-size: 10px; background: var(--surface2); border: 0.5px solid var(--border-light); color: var(--text-dim); border-radius: 4px; padding: 1px 6px; margin-left: 6px; font-family: var(--mono); }
+  .del-btn { background: none; border: none; cursor: pointer; color: var(--text-dim); font-size: 14px; padding: 2px 6px; transition: color 0.15s; flex-shrink: 0; }
+  .del-btn:hover { color: var(--danger); }
+
+  /* ── Copyable summary cards ── */
+  #summaries { margin-top: 1rem; }
+  .summary-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 1.25rem 1.5rem; margin-bottom: 10px; }
+  .summary-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .summary-title { font-size: 11px; color: var(--success); letter-spacing: 0.1em; text-transform: uppercase; font-family: var(--mono); }
+  .summary-body { font-family: var(--mono); font-size: 12px; color: var(--text); background: var(--bg); border: 0.5px solid var(--border-light); border-radius: var(--radius-sm); padding: 12px 14px; white-space: pre; line-height: 1.8; overflow-x: auto; }
+
+  .log { margin-top: 1rem; }
+  .log-item { font-family: var(--mono); font-size: 11px; padding: 6px 0; border-top: 0.5px solid var(--border); color: var(--text-muted); }
+  .log-item.ok { color: var(--success); }
+  .log-item.err { color: var(--danger); }
+  .log-item .ts { color: var(--text-dim); margin-right: 8px; }
+
+  .spinner { display: inline-block; width: 12px; height: 12px; border: 1.5px solid var(--border-light); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  @media (max-width: 560px) {
+    .g2 { grid-template-columns: 1fr; }
+    .g3 { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <span class="logo">Overtime Tracker</span>
+  <h1>Demetri's <strong>Timesheet</strong></h1>
+
+  <div id="auth-bar">
+    <div class="auth-dot" id="auth-dot"></div>
+    <span id="auth-status">Not signed in</span>
+    <button class="btn-sm primary" id="auth-btn" onclick="handleAuth()">Sign in with Google</button>
+  </div>
+
+  <div id="sheet-config">
+    <label>Google Spreadsheet ID</label>
+    <input type="text" id="sheet-id" placeholder="Paste your Spreadsheet ID here..." oninput="saveSheetId()">
+    <p class="hint">From your sheet URL: docs.google.com/spreadsheets/d/<strong style="color:var(--info)">THIS_PART</strong>/edit &nbsp;·&nbsp; <a href="https://docs.google.com/spreadsheets/create" target="_blank">Create new sheet ↗</a></p>
+  </div>
+
+  <div class="form-card">
+    <span class="card-label">New entry</span>
+
+    <!-- Ticket + Company -->
+    <div class="grid g2">
+      <div class="field"><label>Ticket Number <span class="req">*</span></label><input type="text" id="f-ticket" placeholder="e.g. T20260317.0015"></div>
+      <div class="field"><label>Company <span class="req">*</span></label><input type="text" id="f-company" placeholder="e.g. Wedgewood - Balito"></div>
+    </div>
+
+    <!-- Date -->
+    <div class="grid g2">
+      <div class="field">
+        <label>Date <span class="req">*</span></label>
+        <div class="date-row">
+          <select class="sel" id="f-day"></select>
+          <select class="sel" id="f-month">
+            <option value="01">Jan</option><option value="02">Feb</option><option value="03">Mar</option>
+            <option value="04">Apr</option><option value="05">May</option><option value="06">Jun</option>
+            <option value="07">Jul</option><option value="08">Aug</option><option value="09">Sep</option>
+            <option value="10">Oct</option><option value="11">Nov</option><option value="12">Dec</option>
+          </select>
+          <select class="sel" id="f-year"></select>
+        </div>
+      </div>
+      <div class="field" style="display:flex;flex-direction:column;justify-content:flex-end;">
+        <!-- spacer to align with date label -->
+      </div>
+    </div>
+
+    <!-- Times -->
+    <div class="grid g2">
+      <div class="field">
+        <label>Time started <span class="req">*</span></label>
+        <div class="time-row">
+          <select class="sel" id="f-sh"></select>
+          <span class="sep">:</span>
+          <select class="sel" id="f-sm"></select>
+          <select class="sel" id="f-sa"><option>AM</option><option>PM</option></select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Time ended <span class="req">*</span></label>
+        <div class="time-row">
+          <select class="sel" id="f-eh"></select>
+          <span class="sep">:</span>
+          <select class="sel" id="f-em"></select>
+          <select class="sel" id="f-ea"><option>AM</option><option>PM</option></select>
+        </div>
+      </div>
+    </div>
+
+    <div class="dur" id="dur-display"></div>
+
+    <!-- From / To / KM -->
+    <div class="grid g3">
+      <div class="field"><label>From</label><input type="text" id="f-from" placeholder="Origin"></div>
+      <div class="field"><label>To</label><input type="text" id="f-to" placeholder="Destination"></div>
+      <div class="field"><label>KM</label><input type="number" id="f-km" placeholder="0" min="0"></div>
+    </div>
+    <div class="grid g2">
+      <div class="field"><label>Entrance</label><input type="text" id="f-entrance"></div>
+      <div class="field">
+        <label>Return trip</label>
+        <select class="sel sel-full" id="f-return"><option value="">—</option><option>Yes</option><option>No</option></select>
+      </div>
+    </div>
+    <div class="grid" style="margin-bottom:12px">
+      <div class="field"><label>Action / Description <span class="req">*</span></label><textarea id="f-action" placeholder="What was done during this session..."></textarea></div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-add" onclick="addToQueue()">+ Queue entry</button>
+      <button class="btn btn-submit" id="submit-btn" onclick="submitAll()" disabled>Submit all to Google Sheets</button>
+      <span class="err-msg" id="form-err"></span>
+    </div>
+  </div>
+
+  <!-- Queue -->
+  <div id="queue-card" class="queue-card" style="display:none">
+    <div class="queue-header">
+      <span class="card-label">Queued</span>
+      <span class="badge" id="queue-badge">0</span>
+    </div>
+    <div id="queue-list"></div>
+    <div class="btn-row" style="margin-top:12px;border-top:0.5px solid var(--border);padding-top:12px">
+      <button class="btn btn-submit" id="submit-btn2" onclick="submitAll()" disabled>Submit all to Google Sheets</button>
+      <button class="btn btn-clear" onclick="clearQueue()">Clear queue</button>
+    </div>
+  </div>
+
+  <!-- Summaries (appear after successful submit) -->
+  <div id="summaries"></div>
+
+  <!-- Log -->
+  <div id="log" class="log" style="display:none"><div id="log-items"></div></div>
+</div>
+
+<script src="https://accounts.google.com/gsi/client" async></script>
+<script>
+const GOOGLE_CLIENT_ID = '238734593086-a5rgnau3fc4b772avqloc1nhfube4k0u.apps.googleusercontent.com';
+const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
+let tokenClient = null, accessToken = null, queue = [];
+
+window.onload = () => {
+  buildDateSelects();
+  buildTimeSelects();
+  const saved = localStorage.getItem('ot_sheet_id');
+  if (saved) document.getElementById('sheet-id').value = saved;
+  initAuth();
+  ['f-sh','f-sm','f-sa','f-eh','f-em','f-ea'].forEach(id =>
+    document.getElementById(id).addEventListener('change', updateDuration));
+  updateDuration();
+};
+
+// ── DATE / TIME BUILDERS ─────────────────────────────────────
+function buildDateSelects() {
+  const now = new Date();
+  const dayEl = document.getElementById('f-day');
+  const yearEl = document.getElementById('f-year');
+  for (let d = 1; d <= 31; d++) dayEl.add(new Option(d, String(d).padStart(2,'0')));
+  for (let y = now.getFullYear(); y >= now.getFullYear() - 2; y--) yearEl.add(new Option(y, y));
+  dayEl.value = String(now.getDate()).padStart(2,'0');
+  document.getElementById('f-month').value = String(now.getMonth()+1).padStart(2,'0');
+  yearEl.value = now.getFullYear();
+}
+
+function buildTimeSelects() {
+  const now = new Date();
+  const h = now.getHours();
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 || 12;
+  ['f-sh','f-eh'].forEach(id => {
+    const el = document.getElementById(id);
+    for (let i = 1; i <= 12; i++) el.add(new Option(String(i).padStart(2,'0'), String(i).padStart(2,'0')));
+    el.value = String(h12).padStart(2,'0');
+  });
+  ['f-sm','f-em'].forEach(id => {
+    const el = document.getElementById(id);
+    ['00','15','30','45'].forEach(m => el.add(new Option(m, m)));
+    el.value = '00';
+  });
+  document.getElementById('f-sa').value = ampm;
+  document.getElementById('f-ea').value = ampm;
+}
+
+function getDateValue() {
+  return document.getElementById('f-year').value + '-' +
+         document.getElementById('f-month').value + '-' +
+         document.getElementById('f-day').value;
+}
+
+function getDisplayDate() {
+  const d = document.getElementById('f-day').value;
+  const m = document.getElementById('f-month').value;
+  const y = document.getElementById('f-year').value;
+  return d + '/' + m + '/' + y;
+}
+
+function getTime24(hId, mId, aId) {
+  let h = parseInt(document.getElementById(hId).value);
+  const m = document.getElementById(mId).value;
+  const ap = document.getElementById(aId).value;
+  if (ap === 'AM' && h === 12) h = 0;
+  if (ap === 'PM' && h !== 12) h += 12;
+  return String(h).padStart(2,'0') + ':' + m;
+}
+
+function getDisplayTime(hId, mId, aId) {
+  const h = document.getElementById(hId).value;
+  const m = document.getElementById(mId).value;
+  const ap = document.getElementById(aId).value;
+  return h + ':' + m + ' ' + ap;
+}
+
+function updateDuration() {
+  const s = getTime24('f-sh','f-sm','f-sa');
+  const e = getTime24('f-eh','f-em','f-ea');
+  const dp = document.getElementById('dur-display');
+  dp.style.display = 'flex';
+  dp.textContent = '⏱  ' + timePeriodLong(s, e);
+}
+
+// ── AUTH ─────────────────────────────────────────────────────
+function initAuth() {
+  if (typeof google === 'undefined') { setTimeout(initAuth, 300); return; }
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: GOOGLE_CLIENT_ID, scope: SCOPES,
+    callback: (resp) => {
+      if (resp.error) { setAuthState('error', resp.error); return; }
+      accessToken = resp.access_token;
+      setAuthState('connected');
+    }
+  });
+}
+
+function handleAuth() {
+  if (accessToken) {
+    google.accounts.oauth2.revoke(accessToken, () => {});
+    accessToken = null; setAuthState('disconnected'); return;
+  }
+  setAuthState('connecting');
+  tokenClient.requestAccessToken({ prompt: 'consent' });
+}
+
+function setAuthState(state) {
+  const dot = document.getElementById('auth-dot');
+  const status = document.getElementById('auth-status');
+  const btn = document.getElementById('auth-btn');
+  dot.className = 'auth-dot';
+  if (state === 'connected') {
+    dot.classList.add('connected');
+    status.innerHTML = '<strong>Signed in</strong> — ready to write to Google Sheets';
+    btn.textContent = 'Sign out'; btn.className = 'btn-sm danger';
+  } else if (state === 'connecting') {
+    dot.classList.add('connecting');
+    status.textContent = 'Signing in…'; btn.textContent = 'Cancel';
+  } else {
+    status.textContent = 'Not signed in';
+    btn.textContent = 'Sign in with Google'; btn.className = 'btn-sm primary';
+  }
+  updateSubmitBtns();
+}
+
+function saveSheetId() {
+  localStorage.setItem('ot_sheet_id', document.getElementById('sheet-id').value.trim());
+  updateSubmitBtns();
+}
+function getSheetId() { return document.getElementById('sheet-id').value.trim(); }
+
+// ── FORM ─────────────────────────────────────────────────────
+function fv(id) { return document.getElementById(id).value.trim(); }
+
+function addToQueue() {
+  const ticket = fv('f-ticket'), company = fv('f-company'), action = fv('f-action');
+  const err = document.getElementById('form-err');
+  if (!ticket || !company || !action) { err.textContent = 'Ticket Number, Company and Action are required (*)'; return; }
+  err.textContent = '';
+  queue.push({
+    ticket, company,
+    date: getDateValue(),
+    display_date: getDisplayDate(),
+    time_started: getTime24('f-sh','f-sm','f-sa'),
+    time_ended: getTime24('f-eh','f-em','f-ea'),
+    display_start: getDisplayTime('f-sh','f-sm','f-sa'),
+    display_end: getDisplayTime('f-eh','f-em','f-ea'),
+    from: fv('f-from'), to: fv('f-to'), km: fv('f-km'),
+    entrance: fv('f-entrance'), return_trip: fv('f-return'),
+    action
+  });
+  ['f-ticket','f-company','f-from','f-to','f-km','f-entrance','f-action'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('f-return').value = '';
+  renderQueue();
+}
+
+function delFromQueue(i) { queue.splice(i,1); renderQueue(); }
+function clearQueue() { queue = []; renderQueue(); }
+
+function renderQueue() {
+  const card = document.getElementById('queue-card');
+  card.style.display = queue.length ? 'block' : 'none';
+  document.getElementById('queue-badge').textContent = queue.length;
+  document.getElementById('queue-list').innerHTML = queue.map((e,i) => `
+    <div class="entry-item">
+      <div class="entry-meta">
+        <div class="entry-line1">${e.ticket} — ${e.company}<span class="entry-sheet">${sheetName(e.date)}</span></div>
+        <div class="entry-line2">${e.display_date} · ${e.display_start} → ${e.display_end} · ${e.action.slice(0,55)}${e.action.length>55?'…':''}</div>
+      </div>
+      <button class="del-btn" onclick="delFromQueue(${i})">✕</button>
+    </div>`).join('');
+  updateSubmitBtns();
+}
+
+function updateSubmitBtns() {
+  const ready = !!accessToken && !!getSheetId() && queue.length > 0;
+  document.getElementById('submit-btn').disabled = !ready;
+  const s2 = document.getElementById('submit-btn2');
+  if (s2) s2.disabled = !ready;
+}
+
+// ── HELPERS ──────────────────────────────────────────────────
+function sheetName(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  return ['January','February','March','April','May','June','July','August','September','October','November','December'][d.getMonth()] + ' ' + d.getFullYear();
+}
+
+function toMins(hhmm) { const [h,m] = hhmm.split(':').map(Number); return h*60+m; }
+
+function timePeriodShort(s, e) {
+  let diff = toMins(e) - toMins(s); if (diff < 0) diff += 1440;
+  return Math.floor(diff/60) + 'h ' + String(diff%60).padStart(2,'0') + 'm';
+}
+
+function timePeriodLong(s, e) {
+  let diff = toMins(e) - toMins(s); if (diff < 0) diff += 1440;
+  const h = Math.floor(diff/60), m = diff%60;
+  return h + ' Hour' + (h!==1?'s':'') + (m > 0 ? ' ' + m + ' Min' : '');
+}
+
+function buildSummaryText(entry) {
+  const tp = timePeriodLong(entry.time_started, entry.time_ended);
+  // Format display times nicely (strip AM/PM seconds, show HH:MM)
+  const fmtTime = t => {
+    const [h,m] = t.split(':');
+    return h + ':' + m;
+  };
+  return [
+    'Ticket Number: ' + entry.ticket,
+    'Company:  ' + entry.company,
+    'Date: ' + entry.display_date,
+    'Time Started: ' + fmtTime(entry.time_started),
+    'Time Ended: ' + fmtTime(entry.time_ended),
+    'Total Time: ' + tp,
+    'Description:',
+    entry.action
+  ].join('\n');
+}
+
+// ── SUMMARY CARDS ─────────────────────────────────────────────
+function showSummary(entry) {
+  const text = buildSummaryText(entry);
+  const id = 'sum-' + Date.now() + Math.random().toString(36).slice(2,6);
+  const div = document.createElement('div');
+  div.className = 'summary-card';
+  div.innerHTML = `
+    <div class="summary-header">
+      <span class="summary-title">✓ Submitted — ${entry.ticket}</span>
+      <button class="btn btn-copy" onclick="copySum('${id}', this)">Copy text</button>
+    </div>
+    <div class="summary-body" id="${id}">${escHtml(text)}</div>`;
+  document.getElementById('summaries').prepend(div);
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function copySum(id, btn) {
+  const text = document.getElementById(id).textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copy text'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+// ── SHEETS API ───────────────────────────────────────────────
+async function sheetsRequest(method, path, body) {
+  let res;
+  try {
+    res = await fetch('https://sheets.googleapis.com/v4/spreadsheets' + path, {
+      method,
+      headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined
+    });
+  } catch(e) { throw new Error('Network error: ' + e.message); }
+  let data; try { data = await res.json(); } catch { data = {}; }
+  if (!res.ok) throw new Error(data.error?.message || 'HTTP ' + res.status);
+  return data;
+}
+
+async function getSheetsList(id) {
+  const data = await sheetsRequest('GET', '/' + id + '?fields=sheets.properties');
+  return data.sheets.map(s => s.properties.title);
+}
+
+async function createSheet(id, title) {
+  await sheetsRequest('POST', '/' + id + ':batchUpdate', { requests: [{ addSheet: { properties: { title } } }] });
+  await sheetsRequest('POST', `/${id}/values/${encodeURIComponent(title+'!A1:L1')}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`, {
+    range: title+'!A1:L1', majorDimension: 'ROWS',
+    values: [['Date','From','To','KM','Company','Entrance','Return Trip','Time Period','Time Started','Time Ended','Action','Ticket Number']]
+  });
+  log('Created new sheet: ' + title, 'ok');
+}
+
+async function appendEntry(id, entry) {
+  const sn = sheetName(entry.date);
+  const sheets = await getSheetsList(id);
+  if (!sheets.includes(sn)) await createSheet(id, sn);
+  const tp = timePeriodShort(entry.time_started, entry.time_ended);
+  await sheetsRequest('POST', `/${id}/values/${encodeURIComponent(sn+'!A:L')}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`, {
+    range: sn+'!A:L', majorDimension: 'ROWS',
+    values: [[entry.date, entry.from||'', entry.to||'', entry.km||'',
+      entry.company, entry.entrance||'', entry.return_trip||'',
+      tp, entry.time_started, entry.time_ended, entry.action, entry.ticket]]
+  });
+}
+
+// ── SUBMIT ───────────────────────────────────────────────────
+async function submitAll() {
+  const sheetId = getSheetId();
+  if (!sheetId || !accessToken || !queue.length) return;
+  const btn = document.getElementById('submit-btn');
+  const btn2 = document.getElementById('submit-btn2');
+  btn.innerHTML = '<span class="spinner"></span>Submitting…';
+  btn.disabled = true; btn2.disabled = true;
+  showLog();
+  let ok = 0, fail = 0;
+  const submitted = [];
+  for (const entry of queue) {
+    try {
+      await appendEntry(sheetId, entry);
+      log('✓ ' + entry.ticket + ' — ' + entry.company + ' (' + timePeriodShort(entry.time_started, entry.time_ended) + ')', 'ok');
+      submitted.push(entry);
+      ok++;
+    } catch(e) {
+      log('✗ ' + entry.ticket + ' — ' + entry.company + ': ' + e.message, 'err');
+      fail++;
+    }
+  }
+  log('Done — ' + ok + ' written, ' + fail + ' failed', fail > 0 ? 'err' : 'ok');
+  btn.textContent = 'Submit all to Google Sheets';
+  // Show copyable summary for each successful entry
+  submitted.forEach(e => showSummary(e));
+  if (fail === 0) { queue = []; renderQueue(); }
+  updateSubmitBtns();
+}
+
+function showLog() { document.getElementById('log').style.display = 'block'; }
+function log(msg, type) {
+  const now = new Date().toTimeString().slice(0,8);
+  const el = document.createElement('div');
+  el.className = 'log-item' + (type ? ' '+type : '');
+  el.innerHTML = '<span class="ts">'+now+'</span>'+msg;
+  document.getElementById('log-items').prepend(el);
+}
+</script>
+</body>
+</html>
